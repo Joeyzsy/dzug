@@ -13,6 +13,9 @@ var (
 	SerDiscovery serviceDiscovery
 	UserClient   user.ServiceClient
 	VideoClient  video.VideoServiceClient
+
+	//UserClient     user.DouyinUserServiceClient
+	//RelationClient relation.DouyinRelationActionServiceClient
 )
 
 // InitDiscovery 初始化一个服务发现程序

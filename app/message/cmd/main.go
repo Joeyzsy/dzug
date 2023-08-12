@@ -1,11 +1,12 @@
 package main
 
 import (
-	"dzug/app/user/service"
+	"dzug/app/message/infra/db"
+	"dzug/app/message/service"
 	"dzug/conf"
 	"dzug/discovery"
 	"dzug/logger"
-	pb "dzug/protos/user"
+	pb "dzug/protos/message"
 	"fmt"
 	"go.uber.org/zap"
 )
@@ -25,12 +26,15 @@ func main() {
 	defer zap.L().Sync() //把缓冲区的日志，追加到文件中
 	zap.L().Info("服务启动，开始记录日志")
 
+	//3. 初始化数据库
+	db.Init()
+
 	key := "message"          // 注册的名字
-	value := "127.0.0.1:8900" // 注册的服务地址
+	value := "127.0.0.1:9002" // 注册的服务地址
 	// 传入注册的服务名和注册的服务地址进行注册
 	serviceRegister, grpcServer := discovery.InitRegister(key, value)
 	defer serviceRegister.Close()
 	defer grpcServer.Stop()
-	pb.RegisterDouyinUserServiceServer(grpcServer, &service.UserSrv{}) // 绑定grpc
-	discovery.GrpcListen(grpcServer, value)                            // 开启监听
+	pb.RegisterDouyinMessageServiceServer(grpcServer, service.MsgSvr{}) // 绑定grpc
+	discovery.GrpcListen(grpcServer, value)                             // 开启监听
 }

@@ -56,6 +56,11 @@ func NewRouter(mode string) *gin.Engine {
 	{
 		//user.GET("/user/", handlers.UserInfo) //用户信息路由
 	}
+	message := ginRouter.Group("/douyin/message")
+	{
+		message.GET("/chat", handlers.MessageChatList)
+		message.POST("/action", handlers.MessagePostAction)
+	}
 
 	ginRouter.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

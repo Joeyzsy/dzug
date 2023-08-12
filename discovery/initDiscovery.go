@@ -2,6 +2,7 @@ package discovery
 
 import (
 	"dzug/conf"
+	"dzug/protos/message"
 	"dzug/protos/user"
 	"dzug/protos/video"
 	"go.uber.org/zap"
@@ -14,8 +15,7 @@ var (
 	UserClient   user.ServiceClient
 	VideoClient  video.VideoServiceClient
 
-	//UserClient     user.DouyinUserServiceClient
-	//RelationClient relation.DouyinRelationActionServiceClient
+	MessageClient message.DouyinMessageServiceClient
 )
 
 // InitDiscovery 初始化一个服务发现程序

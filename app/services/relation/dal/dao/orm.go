@@ -7,6 +7,7 @@ import (
 	"dzug/repo"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"go.uber.org/zap"
 	"gorm.io/gorm"
@@ -178,6 +179,9 @@ func GetFriendList(ctx context.Context, userID int64) ([]int64, error) {
 
 	// 在 relation 表中查找当前UserID互关的数据
 	err := repo.DB.WithContext(ctx).Where("user_id = ? AND to_user_id IN (?)", userID, repo.DB.WithContext(ctx).Table("relation").Select("user_id").Where("to_user_id = ?", userID)).Find(&friendList).Error
+	for _, v := range friendList {
+		fmt.Printf("Got friend: %++v", v)
+	}
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		zap.L().Error("MySQL数据库中查询到该用户没有好友: ", zap.Error(err))
 		return make([]int64, 0), err
@@ -187,8 +191,8 @@ func GetFriendList(ctx context.Context, userID int64) ([]int64, error) {
 		return nil, err
 	}
 	userIDS := make([]int64, len(friendList))
-	for i, fan := range friendList {
-		userIDS[i] = int64(fan.UserId)
+	for i, friend := range friendList {
+		userIDS[i] = int64(friend.ToUserId)
 	}
 
 	zap.L().Info("MySQL数据库成功获取好友列表")
@@ -225,38 +229,72 @@ func IsFollowByID(ctx context.Context, userID, autherID int64) (bool, error) {
 	}
 	return false, nil //未关注
 }
+func getThreadId(fromUserId int64, toUserId int64) string {
+	if fromUserId < toUserId {
+		return strconv.FormatInt(fromUserId, 10) + "_" + strconv.FormatInt(toUserId, 10)
+	} else {
+		return strconv.FormatInt(toUserId, 10) + "_" + strconv.FormatInt(fromUserId, 10)
+	}
+}
 
 func GetFriendsByIDList(ctx context.Context, UserID int64, friendIDs []int64) ([]*models.FriendUser, error) {
 	var friendInfoList []*models.FriendUser
 	for _, friendID := range friendIDs {
+
+		threadId := getThreadId(UserID, friendID)
+
 		// 查询当前用户发送的最新消息
-		var sentMessage repo.Message
-		err := repo.DB.Order("create_time desc").Where("from_user_id = ? AND to_user_id = ?", UserID, friendID).First(&sentMessage).Error
+		var message repo.Message
+		err := repo.DB.WithContext(ctx).Table("message").Order("create_time desc").Where("thread_id = ?", threadId).First(&message).Error
+		//err := repo.DB.Order("create_time desc").Where("from_user_id = ? AND to_user_id = ?", UserID, friendID).First(&sentMessage).Error
 		if err != nil {
 			zap.L().Error("查不到用户发送的最新消息:", zap.Error(err))
+			continue
 		}
-		// 查询当前用户接收的最新消息
-		var receivedMessage repo.Message
-		err = repo.DB.Order("create_time desc").Where("from_user_id = ? AND to_user_id = ?", friendID, UserID).First(&receivedMessage).Error
-		if err != nil {
-			zap.L().Error("查不到用户接收的最新消息:", zap.Error(err))
-		}
+		fmt.Printf("Got message between %d:%d, with:%++v", UserID, friendID, message)
 
-		// 获取每个(userId, friendId) 的最新消息 和 消息类型，判断哪个消息更新
-		var latestMessage repo.Message
 		var isSender int64
-		if sentMessage.CreateTime > receivedMessage.CreateTime {
-			latestMessage = sentMessage
+		if message.FromUserId == UserID {
 			isSender = 1
 		} else {
-			latestMessage = receivedMessage
 			isSender = 0
 		}
-		msgInfo := &models.FriendUser{
-			Msg:     latestMessage.Contents, // 最新聊天消息
-			MsgType: isSender,               // 消息类型
+		//// 查询当前用户接收的最新消息
+		//var receivedMessage repo.Message
+		//err = repo.DB.Order("create_time desc").Where("from_user_id = ? AND to_user_id = ?", friendID, UserID).First(&receivedMessage).Error
+		//if err != nil {
+		//	zap.L().Error("查不到用户接收的最新消息:", zap.Error(err))
+		//}
+		//
+		//// 获取每个(userId, friendId) 的最新消息 和 消息类型，判断哪个消息更新
+		//var latestMessage repo.Message
+		//var isSender int64
+		//if sentMessage.CreateTime > receivedMessage.CreateTime {
+		//	latestMessage = sentMessage
+		//	isSender = 1
+		//} else {
+		//	latestMessage = receivedMessage
+		//	isSender = 0
+		//}
+		userInfo, err := dao.GetuserInfoByID(ctx, friendID)
+
+		friendInfo := &models.FriendUser{
+			Msg:             message.Contents, // 最新聊天消息
+			MsgType:         isSender,         // 消息类型
+			ID:              userInfo.ID,
+			Name:            userInfo.Name,
+			FollowCount:     userInfo.FollowerCount,
+			FollowerCount:   userInfo.FollowerCount,
+			WorkCount:       userInfo.WorkCount,
+			FavoriteCount:   userInfo.FavoriteCount,
+			IsFollow:        userInfo.IsFollow,
+			Avatar:          userInfo.Avatar,
+			BackgroundImage: userInfo.BackgroundImage,
+			Signature:       userInfo.Signature,
+			TotalFavorited:  userInfo.TotalFavorited,
 		}
-		friendInfoList = append(friendInfoList, msgInfo)
+		fmt.Printf("Got message between %d:%d, with:%++v", UserID, friendID, friendInfo)
+		friendInfoList = append(friendInfoList, friendInfo)
 	}
 	return friendInfoList, nil
 }

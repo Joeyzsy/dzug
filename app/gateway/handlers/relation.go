@@ -157,8 +157,19 @@ func RelationFriendList(ctx *gin.Context) {
 	friendInfoList := make([]*models.FriendUser, 0)
 	for _, m := range relationResp.UserList {
 		friendInfoList = append(friendInfoList, &models.FriendUser{
-			Msg:     m.Message,
-			MsgType: m.MsgType,
+			Msg:             m.Message,
+			MsgType:         m.MsgType,
+			ID:              m.Id,
+			Name:            m.Name,
+			FollowCount:     m.FollowerCount,
+			FollowerCount:   m.FollowerCount,
+			WorkCount:       m.WorkCount,
+			FavoriteCount:   m.FavoriteCount,
+			IsFollow:        m.IsFollow,
+			Avatar:          m.Avatar,
+			BackgroundImage: m.BackgroundImage,
+			Signature:       m.Signature,
+			TotalFavorited:  m.TotalFavorited,
 		})
 	}
 
